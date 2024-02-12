@@ -1,0 +1,53 @@
+version: '3.8'
+
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    environment:
+      POSTGRES_USER: prediction
+      POSTGRES_PASSWORD: prediction
+      POSTGRES_DB: prediction
+    ports:
+      - "5432:5432"
+  prediction:
+    build:
+      context: ./store
+    ports:
+      - "8003:8000"
+    depends_on:
+      - postgres
+    volumes:
+      - static_volume:/app/static
+
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./conf/nginx.config:/etc/nginx/nginx.conf
+      - static_volume:/static
+    ports:
+      - "80:80"
+    depends_on:
+      - prediction
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+  celery:
+    build:
+      context: ./store
+    command: celery -A store worker --loglevel=info
+    depends_on:
+      - redis
+      - postgres
+  celery-beat:
+    build:
+      context: ./store
+    command: celery -A store beat --loglevel=info
+    depends_on:
+      - redis
+      - postgres
+
+volumes:
+  static_volume:
